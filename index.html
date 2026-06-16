@@ -145,6 +145,36 @@
   nav button.on{color:var(--pt);}
   nav button.on .ic{transform:scale(1.08);}
 
+  /* ===== 오늘 운동 기록 ===== */
+  .plan-ref{background:rgba(47,111,94,.06);border:1px solid var(--line);border-radius:12px;padding:11px 14px;margin-bottom:14px;font-size:.85rem;color:#33403a;}
+  .plan-ref b{color:var(--pt);}
+  .plan-ref .small{font-size:.74rem;color:var(--muted);margin-top:4px;line-height:1.5;}
+  .log-item{background:var(--card);border:1px solid var(--line);border-radius:13px;padding:11px 13px;margin-bottom:9px;}
+  .log-item.done{background:rgba(47,111,94,.04);}
+  .log-head{display:flex;align-items:center;gap:10px;}
+  .log-chk{flex:0 0 22px;width:22px;height:22px;border:2px solid var(--line);border-radius:7px;display:grid;place-items:center;color:#fff;font-size:.8rem;background:#fff;cursor:pointer;}
+  .log-item.done .log-chk{background:var(--pt);border-color:var(--pt);}
+  .log-name{display:block;font-weight:800;font-size:.95rem;word-break:keep-all;}
+  .log-item.done .log-name{color:var(--muted);}
+  .log-name input{width:100%;border:none;border-bottom:1.5px solid var(--line);background:transparent;font-weight:800;font-size:.95rem;color:var(--ink);padding:2px 0;}
+  .log-name input:focus{outline:none;border-color:var(--pt);}
+  .log-sub{font-size:.71rem;color:var(--muted);font-weight:600;margin-top:1px;}
+  .log-rm{flex:0 0 auto;background:none;border:none;color:var(--muted);font-size:1.05rem;cursor:pointer;padding:2px 4px;}
+  .log-fields{display:grid;grid-template-columns:1fr 1fr 1fr;gap:7px;margin-top:9px;}
+  .log-fields .ff{display:flex;flex-direction:column;gap:2px;min-width:0;}
+  .log-fields .ff label{font-size:.62rem;font-weight:700;color:var(--muted);text-align:center;}
+  .log-fields .ff input{width:100%;min-width:0;border:1px solid var(--line);border-radius:8px;padding:7px 6px;font-size:.92rem;font-weight:700;font-variant-numeric:tabular-nums;background:var(--paper);color:var(--ink);text-align:center;}
+  .log-fields .ff input:focus{outline:none;border-color:var(--pt);background:#fff;}
+  .picker{background:var(--card);border:1px solid var(--line);border-radius:13px;margin-bottom:10px;overflow:hidden;}
+  .picker>summary{list-style:none;padding:13px 14px;font-weight:800;font-size:.9rem;color:var(--pt);cursor:pointer;}
+  .picker>summary::-webkit-details-marker{display:none;}
+  .picker-body{padding:0 12px 12px;}
+  .picker-grp{font-size:.66rem;font-weight:800;color:var(--self);text-transform:uppercase;letter-spacing:.05em;margin:11px 2px 7px;}
+  .picker-btn{display:inline-block;margin:0 6px 6px 0;padding:7px 11px;border:1px solid var(--line);border-radius:9px;background:var(--paper);font-size:.82rem;font-weight:700;color:var(--ink);cursor:pointer;}
+  .picker-btn:active{background:rgba(47,111,94,.1);}
+  .addbar{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:16px;}
+  .addbar button{background:var(--card);color:var(--pt);border:1px solid var(--pt);border-radius:12px;padding:12px;font-size:.85rem;font-weight:800;cursor:pointer;}
+
   /* ===== 식사·영양 ===== */
   .datepick{width:100%;padding:11px 14px;border:1px solid var(--line);border-radius:12px;background:var(--card);font-size:.95rem;margin-bottom:14px;color:var(--ink);font-weight:700;}
   .datepick:focus{outline:none;border-color:var(--pt);}
@@ -262,9 +292,18 @@
       <div class="progress" id="progBox" style="display:none">
         <div class="pl"><span>오늘 운동 완료</span><span><b id="progTxt">0/0</b></span></div>
         <div class="bar"><i id="progBar"></i></div>
-        <button class="resetbtn" id="resetBtn">체크 초기화</button>
+        <button class="resetbtn" id="resetBtn">체크 모두 해제</button>
       </div>
-      <div id="todayBody"></div>
+      <div id="todayPlan"></div>
+      <div id="logList"></div>
+      <details class="picker" id="dictPicker">
+        <summary>＋ 저장된 운동 불러오기</summary>
+        <div class="picker-body" id="pickerBody"></div>
+      </details>
+      <div class="addbar">
+        <button id="addCustom">＋ 직접 추가</button>
+        <button id="addPlan">📋 계획대로 채우기</button>
+      </div>
     </section>
 
     <!-- 주간 -->
@@ -540,7 +579,7 @@ const dowNames=["일","월","화","수","목","금","토"];
 document.getElementById('todayLabel').textContent =
   `${hcmNow.getFullYear()}.${String(hcmNow.getMonth()+1).padStart(2,'0')}.${String(hcmNow.getDate()).padStart(2,'0')} (${dowNames[todayDow]}) · 호치민 기준`;
 
-function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;');}
+function esc(s){return (''+s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');}
 
 /* 운동 상세 펼침 블록 (체크박스 옵션) */
 function exHTML(id, opts={}){
@@ -588,38 +627,81 @@ function dayHTML(dow, {checkable=false}={}){
       <div class="note">💡 ${r.note}</div></div>`;
 }
 
-/* --- 오늘 --- */
-const todayBody=document.getElementById('todayBody');
-todayBody.innerHTML = `<div class="sect-label">오늘 (${dowNames[todayDow]}요일)</div>` + dayHTML(todayDow,{checkable:!ROUTINE[todayDow].rest});
-
-/* 완료 체크 + 진행률 (localStorage) */
-const LSKEY='dongji_done_'+dateKey;
-let done = JSON.parse(localStorage.getItem(LSKEY)||'[]');
-function refreshProgress(){
-  const boxes=[...document.querySelectorAll('#todayBody .checkable')];
-  if(!boxes.length){document.getElementById('progBox').style.display='none';return;}
-  document.getElementById('progBox').style.display='block';
-  boxes.forEach(b=>{const id=b.dataset.ex; b.classList.toggle('done',done.includes(id));});
-  const n=boxes.filter(b=>done.includes(b.dataset.ex)).length;
-  document.getElementById('progTxt').textContent=`${n}/${boxes.length}`;
-  document.getElementById('progBar').style.width=(n/boxes.length*100)+'%';
+/* --- 오늘: 실제 운동 기록 (수정 가능) --- */
+const LOGKEY='dongji_log_'+dateKey;
+function planItems(dow){
+  const r=ROUTINE[dow];
+  if(r.rest||!r.items)return [];
+  return r.items.map(id=>({id,name:DICT[id]?DICT[id].name:id,sets:'',reps:'',weight:'',done:false}));
 }
-todayBody.addEventListener('click',e=>{
-  const chk=e.target.closest('.chk'); if(!chk)return;
-  e.preventDefault();
-  const ex=chk.closest('.checkable'); const id=ex.dataset.ex;
-  if(done.includes(id)) done=done.filter(x=>x!==id); else done.push(id);
-  localStorage.setItem(LSKEY,JSON.stringify(done));
-  // 캘린더 연동: 하나라도 체크하면 그날 운동한 것으로 기록
+let log=JSON.parse(localStorage.getItem(LOGKEY)||'null');
+if(!log){log=planItems(todayDow);localStorage.setItem(LOGKEY,JSON.stringify(log));}
+function saveLog(){localStorage.setItem(LOGKEY,JSON.stringify(log));}
+function syncWk(){
   const kind=ROUTINE[todayDow].kind;
-  if(done.length && (kind==='pt'||kind==='self')) localStorage.setItem('dongji_wk_'+dateKey,kind);
+  const k=(kind==='pt'||kind==='self')?kind:'self'; // 휴식일에 운동하면 셀프로
+  if(log.some(x=>x.done))localStorage.setItem('dongji_wk_'+dateKey,k);
   else localStorage.removeItem('dongji_wk_'+dateKey);
+}
+function refreshProgress(){
+  const box=document.getElementById('progBox');
+  if(!log.length){box.style.display='none';return;}
+  box.style.display='block';
+  const n=log.filter(x=>x.done).length;
+  document.getElementById('progTxt').textContent=`${n}/${log.length}`;
+  document.getElementById('progBar').style.width=(log.length?n/log.length*100:0)+'%';
+}
+function logRow(it,i){
+  const known=it.id&&DICT[it.id];
+  const sub=known?DICT[it.id].target:'직접 추가';
+  const nameHTML=it.id?`<span class="log-name">${esc(it.name)}</span>`
+    :`<span class="log-name"><input type="text" data-i="${i}" data-f="name" value="${esc(it.name||'')}" placeholder="운동 이름"></span>`;
+  return `<div class="log-item ${it.done?'done':''}" data-i="${i}">
+    <div class="log-head">
+      <span class="log-chk" data-i="${i}">✓</span>
+      <span style="flex:1;min-width:0">${nameHTML}<div class="log-sub">${sub}</div></span>
+      <button class="log-rm" data-i="${i}">✕</button>
+    </div>
+    <div class="log-fields">
+      <div class="ff"><label>세트</label><input inputmode="numeric" data-i="${i}" data-f="sets" value="${esc(it.sets??'')}" placeholder="0"></div>
+      <div class="ff"><label>횟수(회)</label><input inputmode="numeric" data-i="${i}" data-f="reps" value="${esc(it.reps??'')}" placeholder="0"></div>
+      <div class="ff"><label>무게(kg)</label><input inputmode="decimal" data-i="${i}" data-f="weight" value="${esc(it.weight??'')}" placeholder="–"></div>
+    </div>
+  </div>`;
+}
+function renderToday(){
+  const r=ROUTINE[todayDow];
+  const planTxt=r.rest?'오늘은 <b>휴식일</b> (계획상)':`오늘 계획: <b>${r.part}</b> · ${r.place}`;
+  document.getElementById('todayPlan').innerHTML=
+    `<div class="plan-ref">📋 ${planTxt}<div class="small">실제 한 운동을 기록하세요. 계획과 달라도 OK — 불러오거나 직접 추가해 세트·횟수·무게를 입력하면 됩니다.${r.rest?'':'<br>🏃 '+r.cardio}</div></div>`;
+  document.getElementById('logList').innerHTML=log.length?log.map(logRow).join('')
+    :`<p style="color:var(--muted);font-size:.85rem;text-align:center;padding:14px">아직 기록이 없어요. 아래에서 운동을 추가하세요.</p>`;
+  document.querySelectorAll('#logList input').forEach(inp=>inp.addEventListener('input',e=>{
+    log[+e.target.dataset.i][e.target.dataset.f]=e.target.value;saveLog();
+  }));
+  document.querySelectorAll('#logList .log-chk').forEach(c=>c.addEventListener('click',()=>{
+    const i=+c.dataset.i;log[i].done=!log[i].done;saveLog();syncWk();
+    document.querySelector(`.log-item[data-i="${i}"]`).classList.toggle('done',log[i].done);
+    refreshProgress();
+  }));
+  document.querySelectorAll('#logList .log-rm').forEach(b=>b.addEventListener('click',()=>{
+    log.splice(+b.dataset.i,1);saveLog();syncWk();renderToday();
+  }));
   refreshProgress();
+}
+function addExercise(id){const d=DICT[id];if(!d)return;log.push({id,name:d.name,sets:'',reps:'',weight:'',done:false});saveLog();renderToday();}
+document.getElementById('addCustom').addEventListener('click',()=>{
+  const nm=prompt('운동 이름을 입력하세요');
+  if(nm&&nm.trim()){log.push({id:'',name:nm.trim(),sets:'',reps:'',weight:'',done:false});saveLog();renderToday();}
+});
+document.getElementById('addPlan').addEventListener('click',()=>{
+  planItems(todayDow).forEach(pi=>{if(!(pi.id&&log.some(x=>x.id===pi.id)))log.push(pi);});
+  saveLog();renderToday();
 });
 document.getElementById('resetBtn').addEventListener('click',()=>{
-  done=[];localStorage.setItem(LSKEY,'[]');refreshProgress();
+  log.forEach(x=>x.done=false);saveLog();syncWk();renderToday();
 });
-refreshProgress();
+renderToday();
 
 /* --- 주간 --- */
 document.getElementById('weekBody').innerHTML=[1,2,3,4,5,6,0].map(d=>dayHTML(d)).join('');
@@ -648,6 +730,19 @@ function renderDict(q=''){
 }
 renderDict();
 document.getElementById('searchBox').addEventListener('input',e=>renderDict(e.target.value));
+
+/* 오늘 탭 '운동 불러오기' 목록 (사전 그룹 재사용) */
+(function(){
+  let html='';
+  for(const g in groups){
+    html+=`<div class="picker-grp">${g}</div>`;
+    html+=groups[g].map(id=>`<button class="picker-btn" data-add="${id}">${DICT[id].name}</button>`).join('');
+  }
+  document.getElementById('pickerBody').innerHTML=html;
+  document.querySelectorAll('#pickerBody .picker-btn').forEach(b=>b.addEventListener('click',()=>{
+    addExercise(b.dataset.add);document.getElementById('dictPicker').open=false;
+  }));
+})();
 
 /* --- 월간 --- */
 document.getElementById('monthBody').innerHTML=`
