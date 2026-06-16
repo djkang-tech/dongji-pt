@@ -24,7 +24,7 @@
     --safe-bot:env(safe-area-inset-bottom,0px);
   }
   *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
-  html,body{overscroll-behavior-y:none;}
+  html,body{overscroll-behavior-y:none;overflow-x:hidden;}
   body{
     font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Apple SD Gothic Neo','Noto Sans KR',sans-serif;
     background:var(--paper); color:var(--ink); line-height:1.6;
@@ -168,9 +168,9 @@
   .meal-row .mname{font-size:.84rem;font-weight:800;margin-bottom:7px;display:flex;align-items:center;gap:6px;}
   .ingrid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
   .ingrid.four{grid-template-columns:1fr 1fr;}
-  .infield{display:flex;flex-direction:column;gap:3px;}
+  .infield{display:flex;flex-direction:column;gap:3px;min-width:0;}
   .infield label{font-size:.66rem;font-weight:700;color:var(--muted);}
-  .infield input{border:1px solid var(--line);border-radius:9px;padding:8px 10px;font-size:.95rem;font-variant-numeric:tabular-nums;background:var(--paper);color:var(--ink);font-weight:700;}
+  .infield input{width:100%;min-width:0;border:1px solid var(--line);border-radius:9px;padding:8px 10px;font-size:.95rem;font-variant-numeric:tabular-nums;background:var(--paper);color:var(--ink);font-weight:700;}
   .infield input:focus{outline:none;border-color:var(--pt);background:#fff;}
   .cf-row{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:14px;}
 
@@ -899,15 +899,9 @@ document.querySelectorAll('nav button').forEach(btn=>{
   });
 });
 
-/* PWA 서비스워커 (http/https에서만 — 오프라인 캐시) */
+/* PWA 서비스워커 (네트워크 우선 — 항상 최신, 오프라인 시 캐시 폴백) */
 if('serviceWorker' in navigator && location.protocol.startsWith('http')){
-  const sw=`self.addEventListener('install',e=>self.skipWaiting());
-    self.addEventListener('activate',e=>self.clients.claim());
-    self.addEventListener('fetch',e=>{e.respondWith(
-      caches.open('dongji-pt').then(c=>c.match(e.request).then(r=>r||fetch(e.request).then(res=>{c.put(e.request,res.clone());return res;}).catch(()=>r)))
-    );});`;
-  const url=URL.createObjectURL(new Blob([sw],{type:'text/javascript'}));
-  navigator.serviceWorker.register(url).catch(()=>{});
+  navigator.serviceWorker.register('sw.js').catch(()=>{});
 }
 </script>
 </body>
