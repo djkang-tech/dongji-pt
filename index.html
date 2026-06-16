@@ -69,10 +69,10 @@
   }
   .ex.done .chk{background:var(--pt);border-color:var(--pt);}
   .ex-mid{flex:1;min-width:0;}
-  .ex-name{font-weight:800;font-size:.97rem;letter-spacing:-.01em;}
+  .ex-name{font-weight:800;font-size:.97rem;letter-spacing:-.01em;word-break:keep-all;}
   .ex-name .en{font-weight:600;color:var(--muted);font-size:.78rem;}
-  .ex-sub{font-size:.74rem;color:var(--muted);margin-top:1px;}
-  .ex-sr{flex:0 0 auto;text-align:right;font-variant-numeric:tabular-nums;}
+  .ex-sub{font-size:.74rem;color:var(--muted);margin-top:1px;word-break:keep-all;}
+  .ex-sr{flex:0 1 auto;max-width:46%;text-align:right;font-variant-numeric:tabular-nums;word-break:keep-all;}
   .ex-sr b{font-weight:800;font-size:.86rem;}
   .ex-sr .rir{display:block;font-size:.66rem;font-weight:800;color:var(--warm);}
   .caret{flex:0 0 14px;color:var(--muted);font-size:.7rem;transition:.2s;}
@@ -373,7 +373,7 @@ const DICT = {
     alt:"라운드숄더·어깨 건강에 매우 좋음 → 빈도 높여도 OK"},
 
   "plank":{name:"플랭크 + 사이드 플랭크",en:"Plank / Side Plank",cls:"core",part:["코어"],type:"코어(등척성)",
-    sets:"플랭크 2×45–60초 · 사이드 좌우 2×30–40초",rir:"—",target:"복부 전체 + 옆구리(복사근)",
+    sets:"2×45–60초<br>사이드 2×30–40초",rir:"—",target:"복부 전체 + 옆구리(복사근)",
     setup:["팔꿈치를 어깨 바로 아래.","발끝으로 지지."],
     form:["머리–엉덩이–발뒤꿈치를 일직선.","엉덩이가 처지거나 솟지 않게, 배꼽을 등쪽으로 당김.","사이드는 골반을 위로 밀어 옆구리 수축."],
     mistakes:["엉덩이 처짐 → 둔근·코어 더 조이기.","숨 참기 → 천천히 호흡 유지."],
