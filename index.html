@@ -220,6 +220,32 @@
   .upbtn{display:block;width:100%;text-align:center;background:var(--pt);color:#fff;border:none;border-radius:12px;padding:13px;font-size:.9rem;font-weight:800;cursor:pointer;margin-bottom:8px;}
   .uphint{font-size:.74rem;color:var(--muted);text-align:center;margin-bottom:14px;line-height:1.5;}
 
+  /* ===== 월간 캘린더 ===== */
+  .cal-nav{display:flex;align-items:center;justify-content:space-between;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:6px 8px;margin-bottom:12px;}
+  .cal-nav button{background:none;border:none;font-size:1rem;color:var(--pt);font-weight:800;cursor:pointer;padding:6px 16px;border-radius:8px;}
+  .cal-nav button:active{background:rgba(47,111,94,.1);}
+  .cal-nav .mlabel{font-size:.98rem;font-weight:800;}
+  .cal-sum{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px;}
+  .cal-sum .cs{background:var(--card);border:1px solid var(--line);border-radius:11px;padding:10px 6px;text-align:center;}
+  .cal-sum .cs .v{font-size:1.1rem;font-weight:800;font-variant-numeric:tabular-nums;}
+  .cal-sum .cs .l{font-size:.62rem;color:var(--muted);font-weight:700;margin-top:2px;}
+  .cal-grid{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:10px;margin-bottom:8px;}
+  .cal-wd{display:grid;grid-template-columns:repeat(7,1fr);margin-bottom:5px;}
+  .cal-wd span{text-align:center;font-size:.64rem;font-weight:800;color:var(--muted);}
+  .cal-days{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;}
+  .cal-day{aspect-ratio:1;border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:.78rem;font-weight:700;position:relative;background:var(--paper);}
+  .cal-day.empty{background:transparent;}
+  .cal-day .dn{line-height:1;}
+  .cal-day .kc{font-size:.54rem;color:var(--muted);font-weight:700;margin-top:2px;line-height:1;}
+  .cal-day .wd-dot{position:absolute;top:4px;right:5px;width:6px;height:6px;border-radius:50%;}
+  .cal-day.pt{background:rgba(47,111,94,.14);}
+  .cal-day.pt .wd-dot{background:var(--pt);}
+  .cal-day.self{background:rgba(184,116,46,.16);}
+  .cal-day.self .wd-dot{background:var(--self);}
+  .cal-day.today{outline:2px solid var(--accent);outline-offset:-2px;}
+  .cal-legend{display:flex;gap:14px;justify-content:center;font-size:.68rem;color:var(--muted);font-weight:700;margin-bottom:14px;}
+  .cal-legend i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:4px;vertical-align:middle;}
+
   .foot{text-align:center;font-size:.72rem;color:var(--muted);padding:18px 10px 4px;line-height:1.6;}
 </style>
 </head>
@@ -287,8 +313,13 @@
       <div class="uphint">InBody 기계에서 받은 CSV 파일을 올리면 자동으로 추이에 추가됩니다.<br>(같은 날짜는 덮어쓰기 · 데이터는 이 기기에만 저장)</div>
     </section>
 
-    <!-- 월간 추천 -->
+    <!-- 월간 기록 + 추천 -->
     <section class="view" id="view-month">
+      <div class="sect-label">월간 기록 (운동 · 영양)</div>
+      <div id="calNav"></div>
+      <div id="calSummary"></div>
+      <div id="calGrid"></div>
+      <div class="sect-label" style="margin-top:20px">이달의 추천 운동</div>
       <div id="monthBody"></div>
     </section>
   </main>
@@ -579,6 +610,10 @@ todayBody.addEventListener('click',e=>{
   const ex=chk.closest('.checkable'); const id=ex.dataset.ex;
   if(done.includes(id)) done=done.filter(x=>x!==id); else done.push(id);
   localStorage.setItem(LSKEY,JSON.stringify(done));
+  // 캘린더 연동: 하나라도 체크하면 그날 운동한 것으로 기록
+  const kind=ROUTINE[todayDow].kind;
+  if(done.length && (kind==='pt'||kind==='self')) localStorage.setItem('dongji_wk_'+dateKey,kind);
+  else localStorage.removeItem('dongji_wk_'+dateKey);
   refreshProgress();
 });
 document.getElementById('resetBtn').addEventListener('click',()=>{
@@ -625,6 +660,34 @@ document.getElementById('monthBody').innerHTML=`
   </div>
   <div class="info-card"><h4>⚠️ 왼쪽 어깨·팔꿈치 관리</h4>
     풀(당기기)은 <b>액티브행 자세에서 출발</b> · 프레스 통증 시 <b>즉시 중량↓·머신 대체</b> · 매달리기 습관 유지 · 근육통은 OK지만 <b>관절의 날카로운 통증은 STOP</b>. 1~2주 지속 시 FV Hospital 정형외과.</div>`;
+
+/* =========================================================
+   과거 기록 이관 (claude.ai 5/29~6/15 식사 + 5/5~6/15 운동)
+   — 각 키가 없을 때만 심음(기존 입력 보존). 캐시 삭제 시 자동 복원.
+   ========================================================= */
+const SEED_MEALS={
+  "2026-05-29":{kcal:2756,p:70},"2026-05-30":{kcal:1437,p:91},"2026-05-31":{kcal:1118,p:89},
+  "2026-06-01":{kcal:1982,p:130},"2026-06-02":{kcal:1890,p:121},"2026-06-03":{kcal:1649,p:113},
+  "2026-06-04":{kcal:2305,p:123},"2026-06-07":{kcal:0,p:0},"2026-06-09":{kcal:1483},
+  "2026-06-10":{p:131},"2026-06-11":{p:88},"2026-06-12":{kcal:2093,p:119},
+  "2026-06-13":{kcal:1685,p:87},"2026-06-14":{kcal:954,p:48},"2026-06-15":{kcal:1769,p:97}
+};
+const SEED_WK={
+  "2026-05-05":"pt","2026-05-08":"pt","2026-05-12":"pt","2026-05-13":"pt","2026-05-14":"pt",
+  "2026-05-18":"pt","2026-05-20":"pt","2026-05-22":"pt","2026-05-25":"pt","2026-05-28":"pt",
+  "2026-05-30":"pt","2026-06-01":"pt","2026-06-02":"self","2026-06-03":"pt","2026-06-04":"self",
+  "2026-06-05":"pt","2026-06-06":"self","2026-06-09":"pt","2026-06-10":"pt","2026-06-11":"self",
+  "2026-06-12":"pt","2026-06-13":"self","2026-06-15":"pt"
+};
+Object.keys(SEED_MEALS).forEach(d=>{
+  const key='dongji_meal_'+d;
+  if(!localStorage.getItem(key)){const s=SEED_MEALS[d];
+    localStorage.setItem(key,JSON.stringify({m:{breakfast:{kcal:s.kcal??'',p:s.p??''}},supps:[],seed:true}));}
+});
+Object.keys(SEED_WK).forEach(d=>{
+  const key='dongji_wk_'+d;
+  if(!localStorage.getItem(key))localStorage.setItem(key,SEED_WK[d]);
+});
 
 /* =========================================================
    식사 · 영양 기록
@@ -890,11 +953,12 @@ document.getElementById('ibFile').addEventListener('change',e=>{
    데이터 백업 · 복원 (식사 + 운동체크 + 인바디 전체)
    ========================================================= */
 function collectAll(){
-  const out={v:1,exported:dateKey,meals:{},done:{},inbody:getIB()};
+  const out={v:1,exported:dateKey,meals:{},done:{},wk:{},inbody:getIB()};
   for(let i=0;i<localStorage.length;i++){
     const k=localStorage.key(i);
     if(k.startsWith('dongji_meal_'))out.meals[k]=JSON.parse(localStorage.getItem(k));
     else if(k.startsWith('dongji_done_'))out.done[k]=JSON.parse(localStorage.getItem(k));
+    else if(k.startsWith('dongji_wk_'))out.wk[k]=localStorage.getItem(k);
   }
   return out;
 }
@@ -911,14 +975,57 @@ document.getElementById('importFile').addEventListener('change',e=>{
       const d=JSON.parse(r.result);let n=0;
       if(d.meals)Object.keys(d.meals).forEach(k=>{if(!localStorage.getItem(k)){localStorage.setItem(k,JSON.stringify(d.meals[k]));n++;}});
       if(d.done)Object.keys(d.done).forEach(k=>{if(!localStorage.getItem(k))localStorage.setItem(k,JSON.stringify(d.done[k]));});
+      if(d.wk)Object.keys(d.wk).forEach(k=>{if(!localStorage.getItem(k))localStorage.setItem(k,d.wk[k]);});
       if(d.inbody&&Array.isArray(d.inbody)){let arr=getIB();d.inbody.forEach(rec=>{arr=arr.filter(x=>x.date!==rec.date);arr.push(rec);});arr.sort((a,b)=>a.date<b.date?-1:1);saveIB(arr);}
-      buildMealInputs();recalcMeal();renderInbody();
+      buildMealInputs();recalcMeal();renderInbody();renderCal();
       alert(`✅ 복원 완료! (식사 ${n}일 추가)`);
     }catch(err){alert('파일 오류: '+err.message);}
     e.target.value='';
   };
   r.readAsText(f,'utf-8');
 });
+
+/* =========================================================
+   월간 기록 캘린더
+   ========================================================= */
+function workoutOf(ds){return localStorage.getItem('dongji_wk_'+ds)||'';}
+function mealSumOf(ds){
+  const o=JSON.parse(localStorage.getItem('dongji_meal_'+ds)||'null');
+  if(!o)return{k:0,p:0,has:false};
+  let k=0,p=0;Object.values(o.m||{}).forEach(x=>{k+=num(x.kcal);p+=num(x.p);});
+  return{k,p,has:true};
+}
+let calY=hcmNow.getFullYear(), calM=hcmNow.getMonth();
+function renderCal(){
+  const first=new Date(calY,calM,1);
+  const startDow=first.getDay();
+  const days=new Date(calY,calM+1,0).getDate();
+  document.getElementById('calNav').innerHTML=
+    `<button id="calPrev">◀</button><span class="mlabel">${calY}년 ${calM+1}월</span><button id="calNext">▶</button>`;
+  let wkPt=0,wkSelf=0,kSum=0,kN=0,pSum=0,pN=0,cells='';
+  for(let i=0;i<startDow;i++)cells+=`<div class="cal-day empty"></div>`;
+  for(let d=1;d<=days;d++){
+    const ds=`${calY}-${String(calM+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const w=workoutOf(ds);const m=mealSumOf(ds);
+    if(w==='pt')wkPt++;else if(w==='self')wkSelf++;
+    if(m.k>0){kSum+=m.k;kN++;}
+    if(m.p>0){pSum+=m.p;pN++;}
+    const today=ds===dateKey?'today':'';
+    cells+=`<div class="cal-day ${w} ${today}">${w?'<span class="wd-dot"></span>':''}<span class="dn">${d}</span>${m.k>0?`<span class="kc">${m.k}</span>`:''}</div>`;
+  }
+  document.getElementById('calSummary').innerHTML=
+    `<div class="cal-sum">
+      <div class="cs"><div class="v">${wkPt+wkSelf}</div><div class="l">운동 (PT${wkPt}·셀프${wkSelf})</div></div>
+      <div class="cs"><div class="v">${kN?Math.round(kSum/kN):'–'}</div><div class="l">평균 칼로리 (${kN}일)</div></div>
+      <div class="cs"><div class="v">${pN?Math.round(pSum/pN)+'g':'–'}</div><div class="l">평균 단백질 (${pN}일)</div></div>
+    </div>`;
+  document.getElementById('calGrid').innerHTML=
+    `<div class="cal-grid"><div class="cal-wd"><span>일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span></div><div class="cal-days">${cells}</div></div>
+     <div class="cal-legend"><span><i style="background:var(--pt)"></i>PT</span><span><i style="background:var(--self)"></i>셀프</span><span>숫자 = 칼로리</span></div>`;
+  document.getElementById('calPrev').onclick=()=>{calM--;if(calM<0){calM=11;calY--;}renderCal();};
+  document.getElementById('calNext').onclick=()=>{calM++;if(calM>11){calM=0;calY++;}renderCal();};
+}
+renderCal();
 
 /* --- 탭 전환 --- */
 const views={today:'view-today',meal:'view-meal',inbody:'view-inbody',week:'view-week',dict:'view-dict',month:'view-month'};
