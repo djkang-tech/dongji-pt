@@ -858,16 +858,15 @@ function recalcMeal(){
 function renderMealSummary(kcal,p){
   const t=targetsFor(curMealDate);
   const balance=kcal - t.burn; // 섭취 - 총소비
-  const pShort=Math.max(0,t.protein-p);
   // 수지 평가
   let bcls='good',btxt;
   if(kcal===0){bcls='mild';btxt='아직 입력 전 — 끼니별로 기록해 보세요';}
   else if(balance>0){bcls='warn';btxt=`흑자 +${balance} kcal · 섭취 과다`;}
   else if(balance>=-550){bcls='good';btxt=`적자 ${balance} kcal · 이상적 (목표 -300~-500)`;}
   else{bcls='mild';btxt=`적자 ${balance} kcal · 과소섭취 주의 (끼니 챙기기)`;}
-  const protMsg = p>=t.protein?`<span class="pn ok">목표 충족 ✅</span>`
-    : p>=t.proteinMin?`<span class="pn ok">최소(125) 충족 · 이상까지 ${t.protein-p}g</span>`
-    : `<span class="pn short">${pShort}g 부족 (최소 125)</span>`;
+  const protMsg = p>=t.protein?`<span class="pn ok">목표(${t.protein}g) 충족 ✅</span>`
+    : p>=t.proteinMin?`<span class="pn ok">최소 충족 · 이상(${t.protein}g)까지 ${t.protein-p}g</span>`
+    : `<span class="pn short">최소 ${t.proteinMin}g까지 ${t.proteinMin-p}g 부족</span>`;
   document.getElementById('mealSummary').innerHTML=
     `<div class="sumcard">
       <div class="big"><span class="lab">섭취 칼로리</span><span class="val">${kcal}<span class="tgt"> / ${t.cal} kcal</span></span></div>
