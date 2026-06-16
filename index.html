@@ -191,6 +191,9 @@
   .adh{display:flex;justify-content:space-between;font-size:.76rem;padding:3px 0;color:#4d463c;}
   .adh b{font-variant-numeric:tabular-nums;}
 
+  .backup-row{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:8px;}
+  .backbtn{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;font-size:.86rem;font-weight:800;color:var(--pt);cursor:pointer;}
+
   /* ===== 인바디 ===== */
   .chartwrap{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px 12px 8px;margin-bottom:12px;}
   .metricbtns{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;}
@@ -258,11 +261,16 @@
       <div id="mealSummary"></div>
       <div class="sect-label" style="margin-top:18px">끼니별 입력 (칼로리 · 단백질)</div>
       <div id="mealInputs"></div>
-      <div class="sect-label" style="margin-top:14px">탄수화물 · 지방 합계 (데일리 레포트 기준)</div>
-      <div class="cf-row" id="cfRow"></div>
       <div class="sect-label">영양제 체크</div>
       <div id="suppBox"></div>
       <div id="meal7"></div>
+      <div class="sect-label" style="margin-top:18px">데이터 백업 · 복원</div>
+      <div class="backup-row">
+        <button class="backbtn" id="exportBtn">⬇️ 내보내기</button>
+        <button class="backbtn" id="importBtn">⬆️ 불러오기</button>
+        <input type="file" id="importFile" accept=".json" style="display:none">
+      </div>
+      <div class="uphint">캐시·앱 데이터를 지우면 기록이 사라질 수 있어요. 가끔 <b>내보내기</b>로 백업해두세요. (식사·운동체크·인바디 전체 저장)</div>
     </section>
 
     <!-- 인바디 -->
@@ -659,9 +667,6 @@ function buildMealInputs(){
       <div class="infield"><label>단백질 (g)</label>
         <input inputmode="numeric" data-meal="${id}" data-f="p" value="${v.p??''}" placeholder="0"></div></div></div>`;
   }).join('');
-  document.getElementById('cfRow').innerHTML=
-    `<div class="infield"><label>탄수화물 합계 (g)</label><input inputmode="numeric" id="carbIn" value="${o.carb??''}" placeholder="0"></div>
-     <div class="infield"><label>지방 합계 (g)</label><input inputmode="numeric" id="fatIn" value="${o.fat??''}" placeholder="0"></div>`;
   document.getElementById('suppBox').innerHTML=SUPP_TIMES.map(t=>{
     const list=SUPPS.filter(s=>s.time===t).map(s=>{
       const on=o.supps.includes(s.id)?'on':'';
@@ -670,7 +675,7 @@ function buildMealInputs(){
     return `<div class="supp-card"><div class="supp-time">${t}</div>${list}</div>`;
   }).join('');
   // 리스너
-  document.querySelectorAll('#mealInputs input,#cfRow input').forEach(i=>i.addEventListener('input',recalcMeal));
+  document.querySelectorAll('#mealInputs input').forEach(i=>i.addEventListener('input',recalcMeal));
   document.querySelectorAll('#suppBox .supp').forEach(s=>s.addEventListener('click',()=>{
     const o2=getMeal(curMealDate);const id=s.dataset.supp;
     if(o2.supps.includes(id))o2.supps=o2.supps.filter(x=>x!==id);else o2.supps.push(id);
@@ -686,20 +691,16 @@ function recalcMeal(){
     const pr=num(document.querySelector(`[data-meal="${id}"][data-f="p"]`).value);
     o.m[id]={kcal:k||'',p:pr||''};kcal+=k;p+=pr;
   });
-  const carb=num(document.getElementById('carbIn').value);
-  const fat=num(document.getElementById('fatIn').value);
-  o.carb=document.getElementById('carbIn').value;o.fat=document.getElementById('fatIn').value;
+  delete o.carb; delete o.fat;
   saveMeal(curMealDate,o);
-  renderMealSummary(kcal,p,carb,fat);
+  renderMealSummary(kcal,p);
   renderMeal7();
 }
 
-function renderMealSummary(kcal,p,carb,fat){
+function renderMealSummary(kcal,p){
   const t=targetsFor(curMealDate);
   const balance=kcal - t.burn; // 섭취 - 총소비
   const pShort=Math.max(0,t.protein-p);
-  const cShort=Math.max(0,t.carb-carb);
-  const fDiff=fat-t.fat;
   // 수지 평가
   let bcls='good',btxt;
   if(kcal===0){bcls='mild';btxt='아직 입력 전 — 끼니별로 기록해 보세요';}
@@ -716,8 +717,6 @@ function renderMealSummary(kcal,p,carb,fat){
       <div class="balance ${bcls}">${btxt}</div>
       <div class="pills">
         <div class="pill"><div class="pk">🥩 단백질</div><div class="pv">${p}g</div>${protMsg}</div>
-        <div class="pill"><div class="pk">🍚 탄수화물</div><div class="pv">${carb}g</div>${cShort>0?`<span class="pn short">${cShort}g 부족 (목표 ${t.carb})</span>`:`<span class="pn ok">목표 ${t.carb}g 충족</span>`}</div>
-        <div class="pill"><div class="pk">🥑 지방</div><div class="pv">${fat}g</div>${Math.abs(fDiff)<=10?`<span class="pn ok">적정 (목표 ${t.fat})`:fDiff>10?`<span class="pn over">${fDiff}g 초과`:`<span class="pn short">${-fDiff}g 부족`}</span></div>
         <div class="pill"><div class="pk">💧 수분</div><div class="pv">메모</div><span class="pn">하루 2L+ 목표</span></div>
       </div>
     </div>`;
@@ -885,6 +884,40 @@ document.getElementById('ibFile').addEventListener('change',e=>{
     e.target.value='';
   };
   r.readAsText(file,'utf-8');
+});
+
+/* =========================================================
+   데이터 백업 · 복원 (식사 + 운동체크 + 인바디 전체)
+   ========================================================= */
+function collectAll(){
+  const out={v:1,exported:dateKey,meals:{},done:{},inbody:getIB()};
+  for(let i=0;i<localStorage.length;i++){
+    const k=localStorage.key(i);
+    if(k.startsWith('dongji_meal_'))out.meals[k]=JSON.parse(localStorage.getItem(k));
+    else if(k.startsWith('dongji_done_'))out.done[k]=JSON.parse(localStorage.getItem(k));
+  }
+  return out;
+}
+document.getElementById('exportBtn').addEventListener('click',()=>{
+  const blob=new Blob([JSON.stringify(collectAll(),null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download=`동지PT_백업_${dateKey}.json`;document.body.appendChild(a);a.click();a.remove();
+});
+document.getElementById('importBtn').addEventListener('click',()=>document.getElementById('importFile').click());
+document.getElementById('importFile').addEventListener('change',e=>{
+  const f=e.target.files[0];if(!f)return;const r=new FileReader();
+  r.onload=()=>{
+    try{
+      const d=JSON.parse(r.result);let n=0;
+      if(d.meals)Object.keys(d.meals).forEach(k=>{if(!localStorage.getItem(k)){localStorage.setItem(k,JSON.stringify(d.meals[k]));n++;}});
+      if(d.done)Object.keys(d.done).forEach(k=>{if(!localStorage.getItem(k))localStorage.setItem(k,JSON.stringify(d.done[k]));});
+      if(d.inbody&&Array.isArray(d.inbody)){let arr=getIB();d.inbody.forEach(rec=>{arr=arr.filter(x=>x.date!==rec.date);arr.push(rec);});arr.sort((a,b)=>a.date<b.date?-1:1);saveIB(arr);}
+      buildMealInputs();recalcMeal();renderInbody();
+      alert(`✅ 복원 완료! (식사 ${n}일 추가)`);
+    }catch(err){alert('파일 오류: '+err.message);}
+    e.target.value='';
+  };
+  r.readAsText(f,'utf-8');
 });
 
 /* --- 탭 전환 --- */
